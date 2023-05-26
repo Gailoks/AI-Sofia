@@ -1,85 +1,101 @@
+import json
+# TokenDictionary, TokenDictionaryGenerator and Tokenizer
+    
+class TokenDictionary():
+    def __init__(self, tokens_decode_table:list):
+        self.tokens = sorted(tokens_decode_table, lambda x: len(x), reverse=True)
+        self.rw_tokens = {v: k for k, v in enumerate(self.tokens)}
 
-class Tokenizer():
-    def __init__(self, vocab_size, options):
-        self.vocab_size = vocab_size
-        self.options = options
-        self.rw_tokens = {}
-        self.tokens = {}
+    def code(self, text):
+        for token, token_text in enumerate(self.tokens):
+            if text.startswith(token_text):
+                char_ate = len(token_text)
+                return token, char_ate
+        else:
+            return -1, 0
+
+    def decode(self, token):
+        return self.rw_tokens[token]
+    
+    def count(self):
+        return self.tokens.count()
+    
+    def save(self, path:str):
+        with open(path, 'w') as file:
+            json.dump(self.tokens, file)
+
+    @staticmethod
+    def load(path):
+        tokens = None
+        with open(path, 'w') as file:
+            tokens = json.load(path)
+        return TokenDictionary(tokens)
         
-        for token in self.options["special_tokens"]:
-            self.add_token(token)
+    
+class TokenDictionaryGenerator():
+    """
+    Accpet options:\n
+    vocabulary_size (required) - target tokens dictionary size\n
+    token_depth (default: 5) - max lenght of token in statistic analize\n
+    use_words (default: True) - also analize full words
+    """
+    def __init__(self, **options):
+        if "vocabulary_size" not in options:
+            raise Exception("Required paramter 'vocabulary_size' is not present in options")
+        self.options = options
 
-
-    def fit(self, samples: list()):
+    def generate_tokens(self, samples:list) -> TokenDictionary:
+        tokens = []
 
         #Get unique letter in samples and add they as tokens
         alphabet = set()
         for sample in samples:
             alphabet = alphabet.union(sample)
         
-        for char in list(alphabet):
-            self.add_token(char)
+        for char in alphabet:
+            tokens.append(char)
 
         #Generate token using statistic based algoritm
-        self.generate_tokens(samples)
-
-    def generate_tokens(self, samples):
-
         def increase(s_dict, key):
-            if key in s_dict:
-                s_dict[key] += len(key)
-            else:
-                s_dict[key] = len(key)
+            s_dict[key] = s_dict.get(key, 0) + len(key)
 
         def increase_limit(s_dict, key, limit):
             if len(key) >= limit:
                 increase(s_dict, key)
 
+        token_depth = self.options.get("token_depth", 5)
         s_dict = {}
         for sample in samples:
             sample = sample.replace("\n", " ")
             sample = "".join(filter(lambda x: x not in ",.?!\r", sample))
 
-            if self.options["use_words"]:
-                [increase_limit(s_dict, word, self.options["token_depth"]) for word in sample.split()]
+            if self.options.get("use_words", True):
+                [increase_limit(s_dict, word, token_depth) for word in sample.split()]
 
             for i in range(1, len(sample)):
-                for offset in range(1, self.options["token_depth"]):
+                for offset in range(1, token_depth):
                     increase(s_dict, sample[i - offset:i + 1])
 
-        length_of_tokens = len(self.tokens)
+        length_of_tokens = len(tokens)
         sds = sorted(s_dict.items(), key=lambda x: x[1], reverse=True)
 
         #Copy first self.vocab_size-length_of_tokens from sds to token to fill token up to vocab_size
-        for i in range(self.vocab_size-length_of_tokens):
+        for i in range(self.options["vocabulary_size"]-length_of_tokens):
             self.add_token(sds[i][0])
 
-        self.regenerate_rw_tokens()
+        return TokenDictionary(tokens)
 
-    def tokenize(self, text: str) -> list():
-        lot = len(self.rw_tokens)
+
+class Tokenizer():
+    def __init__(self, dictionary:TokenDictionary, **options):
+        self.dictionary = dictionary
+        self.options = options
+
+    def tokenize(self, text:str) -> list():
         while text:
-            for i in range(lot):
-                if text.startswith(self.rw_tokens[lot-i-1]):
-                    text = text.removeprefix(self.rw_tokens[lot-i-1])
-                    yield lot-i-1
-                    break
-            else:
+            token, char_ate = self.dictionary.code(text)
+            if token == -1:
                 text = text[1:]
-                yield 1
-
-    def add_token(self, token):
-        self.tokens[token] = len(self.tokens)
-
-    def regenerate_rw_tokens(self):
-        self.rw_tokens = {v: k for k, v in self.tokens.items()}
-
-
-if __name__ == "main":
-    with open(r"text.txt", encoding="utf-8") as text:
-        text = text.read().lower()
-
-    tokenizer = Tokenizer(1200)
-    tokenizer.fit([text])
-
-    print(tokenizer.rw_tokens)
+                continue
+            text = text[char_ate:]
+            yield token
