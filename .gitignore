@@ -1,3 +1,5 @@
 __pycache__/
 .history/
 data.pkl
+config.json
+tokens.json
