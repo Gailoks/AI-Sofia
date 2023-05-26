@@ -24,7 +24,7 @@ class Tokenizer():
         s_dict = {}
         for sample in samples:
             # sample = sample.replace("\n", " ")
-            sample = "".join(filter(lambda x: x not in ",.?!\r", sample))
+            sample = "".join(filter(lambda x: x not in "\n,.?!\r", sample))
             # [check(s_dict, word)for word in sample.split()]
             for i in range(1, len(sample)):
                 check(s_dict, sample[i-1:i+1])
@@ -53,11 +53,10 @@ class Tokenizer():
 
 
 """
-
 with open(r"text.txt",
           encoding="utf-8") as text:
     text = text.read().lower()
 tokenizer = Tokenizer(1200)
-tokenizer.fit([text])
+tokenizer.fit([text], 'adolf', 'hitler')
 print(len(tokenizer.rw_tokens))
 """
