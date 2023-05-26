@@ -30,8 +30,8 @@ class TokenDictionary():
     @staticmethod
     def load(path):
         tokens = None
-        with open(path, 'w') as file:
-            tokens = json.load(path)
+        with open(path, 'r') as file:
+            tokens = json.load(file)
         return TokenDictionary(tokens)
 
 
