@@ -3,7 +3,7 @@ import json
 import torch
 import torch.nn as nn
 from collections import Counter
-import Tokenizer as tk
+import Tokens as tk
 
 with open("config.json") as fcc_file:
     fcc_data = json.load(fcc_file)
@@ -19,10 +19,10 @@ if tokens.count() != VOCAB_SIZE-1:
 tokenizer = tk.Tokenizer(tokens)
 
 
-class RnnTextGen(nn.Module):
+class RnnTextGen1(nn.Module):
 
     def __init__(self, input_size, inp_lstm_size, hid_size, n_layers, out_size, dropout=0.2) -> None:
-        super(RnnTextGen, self).__init__()
+        super(RnnTextGen1, self).__init__()
         self.input_size = input_size
         self.n_layers = n_layers
         self.hidden_size = hid_size
@@ -43,11 +43,10 @@ class RnnTextGen(nn.Module):
                 torch.zeros(self.n_layers, batch_size, self.hidden_size, requires_grad=True).to(device))
 
 
-model = RnnTextGen(VOCAB_SIZE, 1000, 500, 2, VOCAB_SIZE).to(device)
 model = torch.load("data.pkl").to(device)
 
 
-def evaluate(model: RnnTextGen, text: str, prediction_lim: int = 15):
+def evaluate(model: RnnTextGen1, text: str, prediction_lim: int = 15):
     text_idx = torch.LongTensor(list(tokenizer.tokenize(text))).to(device)
     hidden = model.init_hidden()
     inp = text_idx
