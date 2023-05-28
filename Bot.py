@@ -8,19 +8,19 @@ from RnnTextGen import RnnTextGen
 with open("config.json") as fcc_file:
     fcc_data = json.load(fcc_file)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = 'cpu'  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 bot = Bot(fcc_data["token"])
 dp = Dispatcher(bot)
 model = RnnTextGen.load('data.pkl').to(device)
-tokens = tk.TokenDictionary.load("config.json")
+tokens = tk.TokenDictionary.load("tokens.json")
 tokenizer = tk.Tokenizer(tokens)
 
 
 @dp.message_handler(lambda message: message.text)
 async def anyanswer(message: types.Message):
     text = evaluate(model, tokenizer, torch.LongTensor(
-        [len(tokens.tokens)]), tokens, message.text, 50, device)
+        [len(tokens.tokens)]), message.text, 50)
     await message.answer(text)
 
 if __name__ == "__main__":
