@@ -63,6 +63,6 @@ if __name__ == "__main__":
         factor=0.5
     )
     loss_func = nn.CrossEntropyLoss()
-    train(12, model, device, tokenizer, optim,
+    train(2, model, device, tokenizer, optim,
           scheduler, loss_func, DatasetLoader.load())
     model.save('data.pkl')
