@@ -8,17 +8,24 @@ class RnnTextGen(nn.Module):
         super(RnnTextGen, self).__init__()
         self.n_layers = n_layers
         self.hidden_size = hid_size
+        self.out_size = out_size
         self.Encoder = nn.Embedding(vocabulary_size, input_size)
+        self.l1 = nn.Linear(input_size, out_size)
+        self.Attention = nn.MultiheadAttention(out_size, out_size)
         self.lstm = nn.LSTM(input_size, hid_size, n_layers)
         self.dropout = nn.Dropout(dropout)
-        self.l1 = nn.Linear(hid_size, out_size)
+        self.l2 = nn.Linear(hid_size, out_size)
         self.device = device
 
     def forward(self, x, hidden=None):
         x = self.Encoder(x)
+        p = self.l1(x)
+        aw, _ = self.Attention(p.view(-1, self.out_size), p.view(-1, self.out_size),
+                               p.view(-1, self.out_size))  # a - attn output b - attn_wheights)
         x, hidden = self.lstm(x)
         x = self.dropout(x)
-        x = self.l1(x)
+        x = self.l2(x)
+        x = torch.cat((aw, x))
         return x, hidden
 
     def init_hidden(self, batch_size=1):

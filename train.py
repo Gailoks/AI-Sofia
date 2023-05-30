@@ -4,14 +4,15 @@ import numpy as np
 import json
 
 
-def train(epoches: int, model: nn.Module, device: str, tokenizer, tokens, optimizer, scheduler, loss_func, dataset) -> None:
+def train(epoches: int, model: nn.Module, device: str, tokenizer, optimizer, scheduler, loss_func, dataset) -> None:
     """epoches - number of epoches through all dataset
     model - model required to teach
     batch_size - n/a"""
     def get_batch(dataset: list):
         for qa in dataset:
             question_idx = list(tokenizer.tokenize(qa.question))
-            target = list(tokenizer.tokenize(qa.answer))+[tokens.count()]
+            target = list(tokenizer.tokenize(qa.answer)) + \
+                [tokenizer.count_tokens()]
             test = question_idx+target[:-1]
 
             target = torch.LongTensor(target).to(device)
@@ -50,6 +51,7 @@ if __name__ == "__main__":
 
     tokens = tk.TokenDictionary.load("tokens.json")
     tokenizer = tk.Tokenizer(tokens)
+    tokenizer.count_tokens
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = RnnTextGen.RnnTextGen(**parametrs, device=device).to(device)
@@ -61,6 +63,6 @@ if __name__ == "__main__":
         factor=0.5
     )
     loss_func = nn.CrossEntropyLoss()
-    train(17, model, device, tokenizer, tokens, optim,
+    train(12, model, device, tokenizer, optim,
           scheduler, loss_func, DatasetLoader.load())
     model.save('data.pkl')
