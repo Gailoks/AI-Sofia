@@ -26,10 +26,10 @@ class Dataset:
         self.__dialogs.append(dialog)
 
 
-def load() -> Dataset:
+def load(path:str = "samples") -> Dataset:
     samples = []
-    for sample in os.listdir('samples'):
-        with open("samples/" + sample, encoding="utf-8") as text:
+    for sample in os.listdir(path):
+        with open(path + "/" + sample, encoding="utf-8") as text:
             samples.append(text.read())
 
     dataset = Dataset()
@@ -49,7 +49,6 @@ def load() -> Dataset:
 
 
 if __name__ == "__main__":
-
     from termcolor import colored
 
     dataset = load()

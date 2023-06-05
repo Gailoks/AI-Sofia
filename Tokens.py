@@ -1,12 +1,11 @@
 import json
+import Dataset as ds
 # TokenDictionary, TokenDictionaryGenerator and Tokenizer
 
 
 class TokenDictionary():
     def __init__(self, tokens_decode_table: list):
-        self.tokens = sorted(tokens_decode_table,
-                             key=lambda x: len(x),
-                             reverse=True)
+        self.tokens = sorted(tokens_decode_table, key = lambda x: len(x), reverse = True)
         self.rw_tokens = {v: k for k, v in enumerate(self.tokens)}
 
     def code(self, text):
@@ -43,19 +42,20 @@ class TokenDictionaryGenerator():
     use_words (default: True) - also analize full words
     """
 
-    def __init__(self, **options):
-        if "vocabulary_size" not in options:
-            raise Exception(
-                "Required paramter 'vocabulary_size' is not present in options")
-        self.options = options
+    def __init__(self, vocabulary_size:int, token_depth:int = 5, use_words:bool = True):
+        self.__vocabulary_size = vocabulary_size
+        self.__token_depth = token_depth
+        self.__use_words = use_words
 
-    def generate_tokens(self, samples: list) -> TokenDictionary:
+    def generate_tokens(self, samples: ds.Dataset) -> TokenDictionary:
         tokens = []
 
         # Get unique letter in samples and add they as tokens
         alphabet = set()
-        for sample in samples:
-            alphabet = alphabet.union(sample)
+        for dialog in samples.listDialogs():
+            for qa in dialog.listPairs():
+                alphabet = alphabet.union(qa.question)
+                alphabet = alphabet.union(qa.answer)
 
         for char in alphabet:
             tokens.append(char)
@@ -68,15 +68,15 @@ class TokenDictionaryGenerator():
             if len(key) >= limit:
                 increase(s_dict, key)
 
-        token_depth = self.options.get("token_depth", 5)
+        token_depth = self.__token_depth
         s_dict = {}
-        for sample in samples:
-            sample = sample.replace("\n", " ")
-            sample = "".join(filter(lambda x: x not in ",.?!\r", sample))
+        for dialog in samples.listDialogs():
+            sample = " ".join(map(lambda qa: qa.question + " " + qa.answer, dialog.listPairs()))
+            sample = "".join(filter(lambda x: x not in ",.?!", sample))
 
-            if self.options.get("use_words", True):
+            if self.__use_words:
                 [increase_limit(s_dict, word, token_depth)
-                 for word in sample.split()]
+                for word in sample.split()]
 
             for i in range(1, len(sample)):
                 for offset in range(1, token_depth):
@@ -85,8 +85,8 @@ class TokenDictionaryGenerator():
         length_of_tokens = len(tokens)
         sds = sorted(s_dict.items(), key=lambda x: x[1], reverse=True)
 
-        # Copy first self.vocab_size-length_of_tokens from sds to token to fill token up to vocab_size
-        for i in range(self.options["vocabulary_size"]-length_of_tokens):
+        # Copy first self.vocab_size - length_of_tokens from sds to token to fill token up to vocab_size
+        for i in range(self.__vocabulary_size - length_of_tokens):
             tokens.append(sds[i][0])
 
         return TokenDictionary(tokens)
