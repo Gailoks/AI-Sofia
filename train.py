@@ -45,7 +45,7 @@ def train(epoches: int, model: nn.Module, device: str, tokenizer, optimizer, sch
 if __name__ == "__main__":
     import RnnTextGen
     import Tokens as tk
-    import DatasetLoader
+    import Dataset
     with open("ai.json") as config:
         parametrs = json.load(config)
 
@@ -64,5 +64,5 @@ if __name__ == "__main__":
     )
     loss_func = nn.CrossEntropyLoss()
     train(40, model, device, tokenizer, optim,
-          scheduler, loss_func, DatasetLoader.load())
+          scheduler, loss_func, Dataset.load())
     model.save('data.pkl')

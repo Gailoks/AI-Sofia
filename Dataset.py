@@ -6,21 +6,23 @@ class QAPair:
         self.question = question
         self.answer = answer
 
+
 class Dialog:
-    def __init__(self, dialog:list):
+    def __init__(self, dialog: list):
         self.__dialog = dialog
 
     def listPairs(self) -> list:
         return self.__dialog
-    
+
+
 class Dataset:
     def __init__(self):
-        self.__dialogs:list = []
-    
+        self.__dialogs: list = []
+
     def listDialogs(self) -> list:
         return self.__dialogs
-    
-    def pushDialog(self, dialog:Dialog) -> None:
+
+    def pushDialog(self, dialog: Dialog) -> None:
         self.__dialogs.append(dialog)
 
 
@@ -32,17 +34,19 @@ def load() -> Dataset:
 
     dataset = Dataset()
 
-    seporator = "\nEND_DIALOG\n"
+    seporator = "\n{special_token}\n"
 
     for sample in samples:
         for dialog in sample.split(seporator):
             lines = dialog.splitlines()
             questions = lines[::2]
             answers = lines[1::2]
-            dialog = Dialog(list(map(lambda a: QAPair(a[0].lower(), a[1].lower()), zip(questions, answers))))
+            dialog = Dialog(
+                list(map(lambda a: QAPair(a[0].lower(), a[1].lower()), zip(questions, answers))))
             dataset.pushDialog(dialog)
 
     return dataset
+
 
 if __name__ == "__main__":
 
@@ -51,8 +55,8 @@ if __name__ == "__main__":
     dataset = load()
     for dialog in dataset.listDialogs():
         for index, pair in enumerate(dialog.listPairs()):
-            print(colored(f"[{index}]: ", "blue"), colored(pair.question, "green"), "->", colored(pair.answer, "red"))
+            print(colored(f"[{index}]: ", "blue"), colored(
+                pair.question, "green"), "->", colored(pair.answer, "red"))
         print(colored("■" * 150, "cyan"))
         print("Dialog print end, press any key to show next.")
         input()
-
