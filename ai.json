@@ -1,8 +1,7 @@
 {
     "vocabulary_size": 1200,
-    "input_size":1000,
-    "hid_size":500,
-    "n_layers":2,
-    "out_size":1201,
-    "dropout":0.2
+    "input_size": 1000,
+    "hid_size": 500,
+    "n_layers": 2,
+    "dropout": 0.2
 }
