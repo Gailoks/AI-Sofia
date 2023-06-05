@@ -28,16 +28,19 @@ def load() -> Dataset:
     samples = []
     for sample in os.listdir('samples'):
         with open("samples/" + sample, encoding="utf-8") as text:
-            samples.append(text.read().lower())
+            samples.append(text.read())
 
     dataset = Dataset()
 
+    seporator = "\nEND_DIALOG\n"
+
     for sample in samples:
-        lines = sample.splitlines()
-        questions = lines[::2]
-        answers = lines[1::2]
-        dialog = Dialog(list(map(lambda a: QAPair(a[0], a[1]), zip(questions, answers))))
-        dataset.pushDialog(dialog)
+        for dialog in sample.split(seporator):
+            lines = dialog.splitlines()
+            questions = lines[::2]
+            answers = lines[1::2]
+            dialog = Dialog(list(map(lambda a: QAPair(a[0].lower(), a[1].lower()), zip(questions, answers))))
+            dataset.pushDialog(dialog)
 
     return dataset
 
