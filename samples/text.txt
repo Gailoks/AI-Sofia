@@ -1,12 +1,11 @@
 привет
 привет 
-{Special_token}
+END_DIALOG
 как дела?
 хорошо 
-{Special_token}
+END_DIALOG
 что делаешь?
 ничего 
-{Special_token}
+END_DIALOG
 какой твой любимый цвет?
-синий 
-{Special_token}
+синий

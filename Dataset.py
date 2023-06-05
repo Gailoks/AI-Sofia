@@ -34,7 +34,7 @@ def load() -> Dataset:
 
     dataset = Dataset()
 
-    seporator = "\n{special_token}\n"
+    seporator = "\nEND_DIALOG\n"
 
     for sample in samples:
         for dialog in sample.split(seporator):
