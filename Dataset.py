@@ -45,12 +45,6 @@ if __name__ == "__main__":
 
     from termcolor import colored
 
-    class bcolors:
-        GREEN = '\033[92m'
-        RED = '\033[91m'
-        CYAN = '\033[96m'
-        END = '\033[0m'
-
     dataset = load()
     for dialog in dataset.listDialogs():
         for index, pair in enumerate(dialog.listPairs()):
