@@ -35,30 +35,23 @@ def train(epoches: int, model: nn.Module, device: str, tokenizer, dataset) -> No
         for dialog in dataset.listDialogs():
             for nninput, nnexcept in get_batch(dialog):
                 output, hidden = model(torch.LongTensor(nninput).to(device))
-                exceptTensor = torch.zeros(tokenizer.count_tokens() + st.SERVICE_OUTPUT_SIZE).to(device)
-                exceptTensor[nnexcept[0]] = 1.0
-                loss = loss_func(output, exceptTensor)
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                loss_avg.append(loss.item())
+                outputs = output
 
                 for target in nnexcept[1::]:
                     output, hidden = model(output.argmax().view(-1), hidden)
-                    exceptTensor = torch.zeros(tokenizer.count_tokens() + st.SERVICE_OUTPUT_SIZE).to(device)
-                    exceptTensor[target] = 1.0
+                    outputs=torch.cat((outputs,output))
 
-                    loss = loss_func(output, exceptTensor)
-                    loss.backward()
-                    optimizer.step()
-                    optimizer.zero_grad()
+            loss = loss_func(outputs.view(-1,model.out_size),torch.LongTensor(nnexcept).to(device))
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
-                    loss_avg.append(loss.item())
-                if len(loss_avg) >= 50:
-                    mean_loss = np.mean(loss_avg)
-                    print(f'Loss: {mean_loss}')
-                    scheduler.step(mean_loss)
-                    loss_avg = []
+            loss_avg.append(loss.item())
+            if len(loss_avg) >= 50:
+                mean_loss = np.mean(loss_avg)
+                print(f'Loss: {mean_loss}')
+                scheduler.step(mean_loss)
+                loss_avg = []
 
 
 if __name__ == "__main__":
@@ -69,11 +62,11 @@ if __name__ == "__main__":
 
     tokens = tk.TokenDictionary.load(".aistate/tokens.json")
     tokenizer = tk.Tokenizer(tokens)
-    tokenizer.count_tokens
-    device = 'cpu'#torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = RnnTextGen.RnnTextGen(**parametrs, device=device).to(device)
     dataset = ds.load()
 
-    train(40, model, device, tokenizer, dataset)
+    train(50, model, device, tokenizer, dataset)
     model.save('data.pkl')
