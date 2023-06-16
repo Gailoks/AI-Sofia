@@ -3,33 +3,40 @@ import Tokens as tk
 import ServiceTokens as st
 import RnnTextGen as ai
 
-def evaluate(model, tokenizer, Endt,rolt, text: str, max_length: int = 15, device='cpu'):
-    text_idx = torch.LongTensor(list(tokenizer.tokenize(text))+[rolt]).to(device) 
+def evaluate(Encoder, Decoder, tokenizer,text: str=None, max_length: int = 15, device:str='cpu',status:list=None):
+    service = st.ServiceTokens(tokenizer.count_tokens())
+
+    endt = torch.LongTensor([service.get(st.STO_END)])
+    rolt = service.get(st.STI_ROLE)
+
     predicted_text = ""
-    Endt = Endt.to(device)
-    out,hidden = model(text_idx)
-    inp = out.argmax()
-    if inp == Endt:
-        return "Error no message!"
-    word = tokenizer.decode_token(int(inp))
-    predicted_text += word
-    max_length -= len(word)
+    if status:
+        inp, hidden, encoderoutputs = status
+    else:
+        text_idx = torch.LongTensor(list(tokenizer.tokenize(text))+[rolt]).to(device)
+        encoderoutputs, hidden = Encoder(text_idx)
+        inp = text_idx[-1]
     while max_length>0:
-        out, hidden = model(inp.view(-1), hidden)
+        out, hidden = Decoder(inp, hidden, encoderoutputs)
         inp = out.argmax()
-        if inp == Endt:
+        if inp == endt:
             break
         word = tokenizer.decode_token(int(inp))
         predicted_text += word
         max_length -= len(word)
-    return predicted_text,(inp,hidden)
+    return predicted_text,(inp,hidden,encoderoutputs)
 
-question = input("Введите запрос ")
+#question = input("Введите запрос ")
 tokens = tk.TokenDictionary.load(".aistate/tokens.json")
 tokenizer = tk.Tokenizer(tokens)
 device = "cpu"
-model = ai.RnnTextGen.load('data.pkl').to(device)
-service = st.ServiceTokens(tokenizer.count_tokens())
-endt = torch.LongTensor([service.get(st.STO_END)])
-rolt = service.get(st.STI_ROLE)
-print(evaluate(model,tokenizer,endt,rolt,question,30)[0])
+
+Encoder = torch.load("Encoderdata.pkl").to(device)
+Decoder = torch.load("Decoderdata.pkl").to(device)
+Encoder.eval()
+Decoder.eval()
+
+answer, status = evaluate(Encoder, Decoder, tokenizer,"привет как дела?",30)
+print(answer)
+answer, status = evaluate(Encoder, Decoder, tokenizer,max_length=50,status=status)
+print(answer)
