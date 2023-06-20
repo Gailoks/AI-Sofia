@@ -33,17 +33,41 @@ class Decoder(nn.Module):
         self.l2 = nn.Linear(hid_size,input_size,False)
 
     def forward(self, x, hidden,encoder_outputs):
-        embedded = self.Embedding(x).view(-1,self.input_size)
+        embedded = self.Embedding(x)
         context_vector = self.l2(encoder_outputs)
         context_vector = F.softmax(context_vector,dim=-1)
-        out = (embedded+context_vector)
-        out, hidden = self.lstm(out, hidden)
+        out = embedded+context_vector
+        out, hidden = self.lstm(embedded, hidden)
         out = self.l1(out)
         out = F.log_softmax(out,dim=-1)
         return out, hidden
     
 encoder = Encoder(10,10,10,2)
 decoder = Decoder(10,10,10,2)
-inp = torch.LongTensor([1,2,3,4,5,6])
-encoderout, hidden = encoder(inp)
-print(decoder(inp[-1],hidden,encoderout)[0])
+
+
+t1 = torch.LongTensor([2,3,4,5])
+t2 = torch.LongTensor([2,6,3,6,5])
+
+hiddens = []
+encoded , hidden = encoder(t1)
+hiddens.append(hidden)
+e2, hidden = encoder(t2)
+hiddens.append(hidden)
+encoded = encoded+e2
+
+def batching_hidden(hiddens, batch_size=0):
+    """batch_size is optional"""
+    if not batch_size:
+        batch_size = len(hiddens)
+    cx, tx = hiddens[0]
+    num_layers, hidden_size = cx.shape
+
+    for hidden in hiddens[1:]:
+        cx1, tx1 = hidden
+        cx = torch.cat((cx,cx1))
+        tx = torch.cat((tx, tx1))
+    cx = cx.reshape(num_layers, batch_size, hidden_size)
+    tx = tx.reshape(num_layers, batch_size, hidden_size)
+    return (cx, tx)
+

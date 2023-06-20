@@ -10,14 +10,16 @@ def evaluate(Encoder, Decoder, tokenizer,text: str=None, max_length: int = 15, d
     rolt = service.get(st.STI_ROLE)
 
     predicted_text = ""
+
     if status:
         inp, hidden, encoderoutputs = status
+    
     else:
         text_idx = torch.LongTensor(list(tokenizer.tokenize(text))+[rolt]).to(device)
         encoderoutputs, hidden = Encoder(text_idx)
-        inp = text_idx[-1]
+        inp = torch.LongTensor([rolt]).to(device)
     while max_length>0:
-        out, hidden = Decoder(inp, hidden, encoderoutputs)
+        out, hidden = Decoder(inp.view(-1), hidden, encoderoutputs)
         inp = out.argmax()
         if inp == endt:
             break
@@ -36,7 +38,7 @@ Decoder = torch.load("Decoderdata.pkl").to(device)
 Encoder.eval()
 Decoder.eval()
 
-answer, status = evaluate(Encoder, Decoder, tokenizer,"привет как дела?",30)
+answer, status = evaluate(Encoder, Decoder, tokenizer,"что делаешь?как дела?",30)
 print(answer)
-answer, status = evaluate(Encoder, Decoder, tokenizer,max_length=50,status=status)
+answer, status = evaluate(Encoder, Decoder, tokenizer,max_length=5000,status=status)
 print(answer)

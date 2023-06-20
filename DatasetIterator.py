@@ -2,7 +2,7 @@ from typing import Iterable
 import Dataset as ds
 import ServiceTokens as st
 import Tokens as tk
-from LernSample import *
+from LearnSample import *
 import random
 import torch
 
@@ -33,7 +33,7 @@ class DatasetIterator:
             q = torch.LongTensor(superQ).to(self.__device)
             a = torch.LongTensor(superA).to(self.__device)
 
-            yield LernSample(q, a)
+            yield LearnSample(q, a)
 
     @staticmethod
     def __combinations(iterable, r):

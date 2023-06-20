@@ -5,6 +5,7 @@ import json
 import Dataset as ds
 import Tokens as tk
 import ServiceTokens as st
+import DatasetIterator as dsi
 
 
 def train(epoches: int, Encoder:nn.Module, Decoder:nn.Module, device: str, tokenizer, dataset) -> None:
@@ -12,22 +13,15 @@ def train(epoches: int, Encoder:nn.Module, Decoder:nn.Module, device: str, token
     model - model required to teach
     batch_size - n/a"""
     service_tokens = st.ServiceTokens(tokenizer.count_tokens())
+    dataset_iterator = dsi.DatasetIterator(dataset, service_tokens, tokenizer, device)
 
     loss_func = nn.NLLLoss()
 
     Encoderoptim = torch.optim.Adamax(Encoder.parameters(), lr=1e-2)
-    Decoderoptim =torch.optim.Adam(Decoder.parameters(), lr=1e-2)
+    Decoderoptim =torch.optim.Adam(Decoder.parameters(), lr=1e-2, amsgrad=True)
 
     escheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(Encoderoptim, patience=5, verbose=True, factor=0.5)
     dscheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(Decoderoptim, patience=5, verbose=True, factor=0.5)
-    
-    def get_batch(dialog: ds.Dialog):
-        nninput = []
-        for qa in dialog.listPairs():
-            nninput += list(tokenizer.tokenize(qa.question)) + [service_tokens.get(st.STI_ROLE)]
-            nnexcept = list(tokenizer.tokenize(qa.answer)) + [service_tokens.get(st.STO_END)]
-            yield nninput.copy(), nnexcept.copy()
-            nninput += list(tokenizer.tokenize(qa.answer)) + [service_tokens.get(st.STI_ROLE)]
 
     loss_avg = []
 
@@ -35,37 +29,38 @@ def train(epoches: int, Encoder:nn.Module, Decoder:nn.Module, device: str, token
     Decoder.train()
 
     for epoch in range(epoches):
+        for sample in dataset_iterator.iterate(1):
+            nninput = sample.question
+            nnexcept = sample.exceptAnswer
 
-        for dialog in dataset.listDialogs():
+            encoderout, (cx,tx) = Encoder(nninput)
+            cx = cx.reshape(Encoder.n_layers, 1, Encoder.hidden_size)
+            tx = tx.reshape(Encoder.n_layers, 1, Encoder.hidden_size)
+            output, hidden = Decoder(nninput[-1].view(-1,1), (cx, tx), encoderout)
+            outputs = output
 
-            for nninput, nnexcept in get_batch(dialog):
+            for train in nnexcept[:-1:]:
+                output, hidden = Decoder(train.view(-1,1), hidden, encoderout)
+                outputs=torch.cat((outputs, output))
 
-                encoderout, hidden = Encoder(torch.LongTensor(nninput).to(device))
-                output, hidden = Decoder(torch.LongTensor([nninput[-1]]).to(device), hidden, encoderout)
-                outputs = output
+            loss = loss_func(outputs.view(-1,Decoder.out_size),nnexcept)
+            loss.backward()
 
-                for train in nnexcept[:-1:]:
-                    output, hidden = Decoder(torch.LongTensor([train]).to(device), hidden, encoderout)
-                    outputs=torch.cat((outputs, output))
+            Encoderoptim.step()
+            Decoderoptim.step()
 
-                loss = loss_func(outputs.view(-1,Decoder.out_size),torch.LongTensor(nnexcept).to(device))
-                loss.backward()
+            Encoderoptim.zero_grad()
+            Decoderoptim.zero_grad()
 
-                Encoderoptim.step()
-                Decoderoptim.step()
+            loss_avg.append(loss.item())
+            if len(loss_avg) >= 50:
+                mean_loss = np.mean(loss_avg)
+                print(f'Loss: {mean_loss}')
 
-                Encoderoptim.zero_grad()
-                Decoderoptim.zero_grad()
+                escheduler.step(mean_loss)
+                dscheduler.step(mean_loss)
 
-                loss_avg.append(loss.item())
-                if len(loss_avg) >= 50:
-                    mean_loss = np.mean(loss_avg)
-                    print(f'Loss: {mean_loss}')
-
-                    escheduler.step(mean_loss)
-                    dscheduler.step(mean_loss)
-
-                    loss_avg = []
+                loss_avg = []
     torch.save(Encoder,"Encoderdata.pkl")
     torch.save(Decoder,'Decoderdata.pkl')
 
