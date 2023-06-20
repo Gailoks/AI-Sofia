@@ -52,10 +52,9 @@ class TokenDictionaryGenerator():
 
         # Get unique letter in samples and add they as tokens
         alphabet = set()
-        for dialog in samples.listDialogs():
-            for qa in dialog.listPairs():
-                alphabet = alphabet.union(qa.question)
-                alphabet = alphabet.union(qa.answer)
+        for qa in samples.listPairs():
+            alphabet = alphabet.union(qa.question)
+            alphabet = alphabet.union(qa.answer)
 
         for char in alphabet:
             tokens.append(char)
@@ -70,17 +69,17 @@ class TokenDictionaryGenerator():
 
         token_depth = self.__token_depth
         s_dict = {}
-        for dialog in samples.listDialogs():
-            sample = " ".join(map(lambda qa: qa.question + " " + qa.answer, dialog.listPairs()))
-            sample = "".join(filter(lambda x: x not in ",.?!", sample))
 
-            if self.__use_words:
-                [increase_limit(s_dict, word, token_depth)
-                for word in sample.split()]
+        sample = " ".join(map(lambda qa: qa.question + " " + qa.answer, samples.listPairs()))
+        sample = "".join(filter(lambda x: x not in ",.?!", sample))
 
-            for i in range(1, len(sample)):
-                for offset in range(1, token_depth):
-                    increase(s_dict, sample[i - offset:i + 1])
+        if self.__use_words:
+            [increase_limit(s_dict, word, token_depth)
+            for word in sample.split()]
+
+        for i in range(1, len(sample)):
+            for offset in range(1, token_depth):
+                increase(s_dict, sample[i - offset:i + 1])
 
         length_of_tokens = len(tokens)
         sds = sorted(s_dict.items(), key=lambda x: x[1], reverse=True)
