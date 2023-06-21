@@ -10,7 +10,7 @@ class Encoder(nn.Module):
         self.input_size = input_size
         self.hidden_size = hid_size
         self.n_layers = n_layers
-        self.Embedding = nn.Embedding(vocabulary_size+st.SERVICE_INPUT_SIZE, input_size)
+        self.Embedding = nn.Embedding(vocabulary_size, input_size)
         self.lstm = nn.LSTM(input_size,hid_size,n_layers,dropout=dropout)
 
     def forward(self, x, hidden=None):

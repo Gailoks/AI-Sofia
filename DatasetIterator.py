@@ -27,7 +27,7 @@ class DatasetIterator:
                 superQ += list(self.__tokenizer.tokenize(qaPair.question))
                 superA += list(self.__tokenizer.tokenize(qaPair.answer))
 
-            superQ.append(self.__servicetokens.get(st.STI_ROLE))
+            
             superA.append(self.__servicetokens.get(st.STO_END))
 
             q = torch.LongTensor(superQ).to(self.__device)

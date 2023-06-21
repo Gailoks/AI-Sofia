@@ -14,6 +14,7 @@ def train(epoches: int, Encoder:nn.Module, Decoder:nn.Module, device: str, token
     batch_size - n/a"""
     service_tokens = st.ServiceTokens(tokenizer.count_tokens())
     dataset_iterator = dsi.DatasetIterator(dataset, service_tokens, tokenizer, device)
+    rolt = torch.LongTensor([service_tokens.get(st.STI_ROLE)]).to(device)
 
     loss_func = nn.NLLLoss()
 
@@ -36,7 +37,7 @@ def train(epoches: int, Encoder:nn.Module, Decoder:nn.Module, device: str, token
             encoderout, (cx,tx) = Encoder(nninput)
             cx = cx.reshape(Encoder.n_layers, 1, Encoder.hidden_size)
             tx = tx.reshape(Encoder.n_layers, 1, Encoder.hidden_size)
-            output, hidden = Decoder(nninput[-1].view(-1,1), (cx, tx), encoderout)
+            output, hidden = Decoder(rolt.view(-1, 1), (cx, tx), encoderout)
             outputs = output
 
             for train in nnexcept[:-1:]:
