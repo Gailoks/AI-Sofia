@@ -21,3 +21,7 @@ class RnnTextGen(nn.Module):
         out = self.l1(out)
         out = self.logsoftmax(out)
         return out, hidden
+    
+    def init_hidden(self, batch_size=1,device='cpu'):
+        return (torch.zeros(self.n_layers, batch_size, self.hidden_size, requires_grad=True).to(device),
+               torch.zeros(self.n_layers, batch_size, self.hidden_size, requires_grad=True).to(device))

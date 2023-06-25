@@ -14,12 +14,11 @@ def train(epoches: int, model:nn.Module, device: str, tokenizer, dataset) -> Non
     batch_size - n/a"""
     service_tokens = st.ServiceTokens(tokenizer.count_tokens())
     dataset_iterator = dsi.DatasetIterator(dataset, service_tokens, tokenizer, device)
-    rolt = torch.LongTensor([service_tokens.get(st.STI_ROLE)]).to(device)
+ 
 
     loss_func = nn.NLLLoss()
 
     optim =torch.optim.Adam(model.parameters(), lr=1e-2, amsgrad=True)
-
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, patience=5, verbose=True, factor=0.5)
 
@@ -28,21 +27,19 @@ def train(epoches: int, model:nn.Module, device: str, tokenizer, dataset) -> Non
     model.train()
 
     for epoch in range(epoches):
-        for sample in dataset_iterator.iterate(1):
+        for sample in dataset_iterator.iterate(3,20):
             nninput = sample.question
             nnexcept = sample.exceptAnswer
+            mask = sample.mask
 
-            encoderout, (cx,tx) = model(nninput)
-            cx = cx.reshape(model.n_layers, 1, model.hidden_size)
-            tx = tx.reshape(model.n_layers, 1, model.hidden_size)
-            output, hidden = model(rolt.view(-1, 1), (cx, tx))
-            outputs = output
+            hidden = model.init_hidden(nninput.shape[0], device)
 
-            for train, target in zip(nnexcept[:-1:],nnexcept[1::]):
-                output, hidden = model(train.view(-1,1), hidden)
-                outputs=torch.cat((outputs, output))
+            output, hidden = model(nninput.permute(1,0), hidden)
 
-            loss = loss_func(outputs.view(-1,model.out_size),nnexcept)
+            masked_nnexcept = torch.masked_select(nnexcept,mask)
+            masked_out = torch.masked_select(output.permute(1,0,2), mask.view(3,-1,1))
+
+            loss = loss_func(masked_out.view(-1,model.out_size), masked_nnexcept)
             loss.backward()
 
             optim.step()
@@ -50,7 +47,7 @@ def train(epoches: int, model:nn.Module, device: str, tokenizer, dataset) -> Non
             optim.zero_grad()
 
             loss_avg.append(loss.item())
-            if len(loss_avg) >= 50:
+            if len(loss_avg) >= 15:
                 mean_loss = np.mean(loss_avg)
                 print(f'Loss: {mean_loss}')
 
@@ -75,4 +72,4 @@ if __name__ == "__main__":
     model = RnnTextGen(**parametrs).to(device)
     dataset = ds.load()
 
-    train(20, model, device, tokenizer, dataset)
+    train(10, model, device, tokenizer, dataset)

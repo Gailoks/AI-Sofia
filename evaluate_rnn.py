@@ -16,6 +16,7 @@ def evaluate(model:torch.nn.Module, tokenizer,text: str=None, max_length: int = 
     
     else:
         text_idx = torch.LongTensor(list(tokenizer.tokenize(text))).to(device)
+        
         _, hidden = model(text_idx)
         inp = torch.LongTensor([rolt]).to(device)
     while max_length>0:
@@ -39,5 +40,5 @@ Model.eval()
 
 answer, status = evaluate(Model, tokenizer,"как дела? что делаешь?",30)
 print(answer)
-answer, status = evaluate(Model, tokenizer,max_length=5000,status=status)
+answer, status = evaluate(Model, tokenizer,max_length=50,status=status)
 print(answer)

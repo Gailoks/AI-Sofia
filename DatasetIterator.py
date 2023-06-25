@@ -14,48 +14,39 @@ class DatasetIterator:
         self.__device = device
         self.__tokenizer = tokenizer
 
-    def iterate(self, combine_question:int) -> Iterable:
+    def iterate(self,batch_size,batch_len) -> Iterable:
+        """batch_size
+        batch_len
+        """
 
-        qaPairs = DatasetIterator.__combinations(self.__dataset.listPairs(), combine_question)
+        qaPairs =self.__dataset.listPairs()
         
-        for qapairComb in qaPairs:
+        train = []
+        target = [] 
+        mask = []
 
-            superQ = []
-            superA = []
+        for sample in qaPairs:
+            tq = list(self.__tokenizer.tokenize(sample.question))#tokenized question
+            ta = list(self.__tokenizer.tokenize(sample.answer))#tokenized answer
+            train += tq + [self.__servicetokens.get(st.STI_ROLE)] + ta
+            target += tq + ta + [self.__servicetokens.get(st.STO_END)]
+            mask += len(tq)*[0] + [1] + len(ta)*[1]
 
-            for qaPair in qapairComb:
-                superQ += list(self.__tokenizer.tokenize(qaPair.question))
-                superA += list(self.__tokenizer.tokenize(qaPair.answer))
+        train = list(DatasetIterator.partition(train, batch_len))
+        target = list(DatasetIterator.partition(target, batch_len))
+        mask = list(DatasetIterator.partition(mask,batch_len))
+        offset = 0
+        for y in range(0,len(train)-batch_size,batch_size):
+                inptensor = torch.LongTensor(train[offset:batch_size+offset]).to(self.__device)
+                outtensor = torch.LongTensor(target[offset:batch_size+offset]).to(self.__device)
+                masktensor = torch.BoolTensor(mask[offset:batch_size+offset]).to(self.__device)
+                offset+= batch_size
+                yield LearnSample(inptensor, outtensor, masktensor)
+        self.__dataset.shuffle()
 
-            
-            superA.append(self.__servicetokens.get(st.STO_END))
-
-            q = torch.LongTensor(superQ).to(self.__device)
-            a = torch.LongTensor(superA).to(self.__device)
-
-            yield LearnSample(q, a)
-
-    @staticmethod
-    def __combinations(iterable, r):
-        # combinations('ABCD', 2) --> AB AC AD BC BD CD
-        # combinations(range(4), 3) --> 012 013 023 123
-        pool = tuple(iterable)
-        n = len(pool)
-        if r > n:
-            return
-        indices = list(range(r))
-        yield tuple(pool[i] for i in indices)
-        while True:
-            for i in reversed(range(r)):
-                if indices[i] != i + n - r:
-                    break
-            else:
-                return
-            indices[i] += 1
-            for j in range(i+1, r):
-                indices[j] = indices[j-1] + 1
-            yield tuple(pool[i] for i in indices)
-
+    def partition(l:iter, split_size:int)->iter:
+        for i in range(0, len(l), split_size):
+            yield l[i:i + split_size]
 
 if __name__ == "__main__":
     from termcolor import colored
@@ -69,7 +60,7 @@ if __name__ == "__main__":
 
     iterator = DatasetIterator(dataset, service_tokens, tokenizer, torch.device("cpu"))
 
-    for sample in iterator.iterate(2):
+    for sample in iterator.iterate(2,5):
         print(f"{colored(sample.question, 'green')} -> {colored(sample.exceptAnswer, 'red')}", end=None)
         input()
         

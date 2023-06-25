@@ -1,4 +1,5 @@
 import os
+import random
 
 
 class QAPair:
@@ -15,6 +16,9 @@ class Dataset:
 
     def pushPair(self, pair:QAPair) -> None:
         self.__pairs.append(pair)
+    
+    def shuffle(self):
+        random.shuffle(self.__pairs)
 
 
 def load(path:str = "samples") -> Dataset:

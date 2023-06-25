@@ -1,73 +1,37 @@
-import torch
-import torch.nn as nn
+import DatasetIterator as dsi
+import Tokens as tk
+import Dataset as ds
 import ServiceTokens as st
-import torch.nn.functional as F
+import torch
 
-class Encoder(nn.Module):
-    def __init__(self, vocabulary_size, input_size, hid_size, n_layers, dropout=0.2 ):
-        super().__init__()
-        self.vocabulary_size = vocabulary_size
-        self.input_size = input_size
-        self.hidden_size = hid_size
-        self.Embedding = nn.Embedding(vocabulary_size+st.SERVICE_INPUT_SIZE, input_size)
-        self.lstm = nn.LSTM(input_size,hid_size,n_layers,dropout=dropout)
+device = 'cpu'
+batch_size = 10
+dataset = ds.load()
+tokens = tk.TokenDictionary.load(".aistate/tokens.json")
+tokenizer = tk.Tokenizer(tokens)
+service_tokens = st.ServiceTokens(tokenizer.count_tokens())
+train = []
+target  = []
+mask = []
+for sample in dataset.listPairs():
+    tq = list(tokenizer.tokenize(sample.question))
+    ta = list(tokenizer.tokenize(sample.answer))
+    train += tq + [service_tokens.get(st.STI_ROLE)] + ta
+    target += tq + ta + [service_tokens.get(st.STO_END)]
+    mask += len(tq)*[0] + len(ta)*[1]
 
-    def forward(self, x, hidden=None):
-        x = self.Embedding(x)
-        x , hidden = self.lstm(x,hidden)
-        x = sum(x)
-        return x, hidden
-    
-class Decoder(nn.Module):
-    def __init__(self, vocabulary_size, input_size, hid_size, n_layers, dropout=0.2 ):
-        super().__init__()
-        self.vocabulary_size = vocabulary_size
-        self.input_size = input_size
-        self.hidden_size = hid_size
-        self.out_size = vocabulary_size+st.SERVICE_OUTPUT_SIZE
-        self.Embedding = nn.Embedding(vocabulary_size+st.SERVICE_INPUT_SIZE, input_size)
-        self.lstm = nn.LSTM(input_size, hid_size, n_layers, dropout=dropout)
-        self.l1 = nn.Linear(hid_size,self.out_size)
-        self.fc_hidden = nn.Linear(hid_size,hid_size,False)
-        self.fc_encoder = nn.Linear(hid_size,hid_size,False)
-        self.l2 = nn.Linear(hid_size,input_size,False)
+def partition(l:iter, split_size:int)->iter:
+    for i in range(0, len(l), split_size):
+        yield l[i:i + split_size]
 
-    def forward(self, x, hidden,encoder_outputs):
-        embedded = self.Embedding(x)
-        context_vector = self.l2(encoder_outputs)
-        context_vector = F.softmax(context_vector,dim=-1)
-        out = embedded+context_vector
-        out, hidden = self.lstm(embedded, hidden)
-        out = self.l1(out)
-        out = F.log_softmax(out,dim=-1)
-        return out, hidden
-    
-encoder = Encoder(10,10,10,2)
-decoder = Decoder(10,10,10,2)
+train = list(partition(train, 4))
+target = list(partition(target, 4))
+mask = list(partition(mask,4))
 
-
-t1 = torch.LongTensor([2,3,4,5])
-t2 = torch.LongTensor([2,6,3,6,5])
-
-hiddens = []
-encoded , hidden = encoder(t1)
-hiddens.append(hidden)
-e2, hidden = encoder(t2)
-hiddens.append(hidden)
-encoded = encoded+e2
-
-def batching_hidden(hiddens, batch_size=0):
-    """batch_size is optional"""
-    if not batch_size:
-        batch_size = len(hiddens)
-    cx, tx = hiddens[0]
-    num_layers, hidden_size = cx.shape
-
-    for hidden in hiddens[1:]:
-        cx1, tx1 = hidden
-        cx = torch.cat((cx,cx1))
-        tx = torch.cat((tx, tx1))
-    cx = cx.reshape(num_layers, batch_size, hidden_size)
-    tx = tx.reshape(num_layers, batch_size, hidden_size)
-    return (cx, tx)
-
+q = torch.LongTensor(train[0:2])
+a = torch.LongTensor(target[0:2])
+m = torch.BoolTensor(mask[0:2])
+am = torch.masked_select(a,m)
+something = torch.LongTensor([[[1,2,3,4,5,6,7,8], [9,10,11,12,13,14,15,16], [17,18,19,20,21,22,23,24]]]).permute(1,0,2)#3 1 8  3 - batch_len, 1 - batch_size, 8 - vocab_size
+something = torch.masked_select(something,m.view(1,-1,1))
+print(something.view(8,3,-1))
