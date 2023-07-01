@@ -14,10 +14,12 @@ class RnnTextGen(nn.Module):
         self.lstm = nn.LSTM(input_size, hid_size, n_layers, dropout = dropout)
         self.l1 = nn.Linear(hid_size,self.out_size)
         self.logsoftmax = nn.LogSoftmax(-1)
+        self.relu = nn.ReLU()
 
     def forward(self, x, hidden=None):
         x = self.Encoder(x)
         out, hidden = self.lstm(x, hidden)
+        out = self.relu(out)
         out = self.l1(out)
         out = self.logsoftmax(out)
         return out, hidden

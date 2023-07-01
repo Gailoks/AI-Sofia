@@ -38,7 +38,7 @@ Model = torch.load("moduledata.pkl").to(device)
 
 Model.eval()
 
-answer, status = evaluate(Model, tokenizer,"как дела? что делаешь?",30)
+answer, status = evaluate(Model, tokenizer,"как дела?",30)
 print(answer)
 answer, status = evaluate(Model, tokenizer,max_length=50,status=status)
 print(answer)
