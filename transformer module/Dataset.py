@@ -32,8 +32,10 @@ def load(path:str = "samples") -> Dataset:
     seporator = "\n\n"
 
     for sample in samples:
-        for pair in sample.split(seporator):
+        for i, pair in enumerate(sample.split(seporator)):
             lines = pair.splitlines()
+            if len(lines) != 2:
+                raise Exception(f"Dataset load error, input dataset has invalid format, record at line {i * 3 + 1} has invalid count of lines")
             q = lines[0]
             a = lines[1]
             dataset.pushPair(QAPair(q, a))
