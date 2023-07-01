@@ -15,34 +15,28 @@ class DatasetIterator:
         self.__tokenizer = tokenizer
 
     def iterate(self, batch_size, out_size) -> Iterable:
-        """
-        batch_size
-        batch_len
-        """
-
-        qaPairs =self.__dataset.listPairs()
+        qaPairs = self.__dataset.listPairs()
         
-        train = []
-        target = [] 
-        
+        samples : list = []
 
-        for sample in qaPairs:
-            tq = list(self.__tokenizer.tokenize(sample.question))#tokenized question
-            ta = list(self.__tokenizer.tokenize(sample.answer+" "))#tokenized answer
-            train += tq
-            target += ta + [self.__servicetokens.get(st.STIO_NULL)]*(out_size - len(ta))
-            
+        for qa in qaPairs:
+            tokenized_question = list(self.__tokenizer.tokenize(qa.question))
 
-        
+            tokenized_answer = list(self.__tokenizer.tokenize(qa.answer + " "))
+            tokenized_answer = tokenized_answer + [self.__servicetokens.get(st.STIO_NULL)] * (out_size - len(tokenized_answer))
+
+            samples.append((tokenized_question, tokenized_answer))
+
         offset = 0
-        for y in range(0,len(train)-batch_size,batch_size):
-                inptensor = torch.LongTensor(train[offset:batch_size+offset]).to(self.__device)
-                outtensor = torch.LongTensor(target[offset:batch_size+offset]).to(self.__device)
-                offset+= batch_size
-                yield LearnSample(inptensor, outtensor)
-        self.__dataset.shuffle()
+        for offset in range(0, len(samples), batch_size):
+            raw_batch = samples[offset:offset + batch_size:]
 
+            batch = []
+            for batch_el in raw_batch:
+                batch.append(LearnSample(torch.LongTensor(batch_el[0]).to(self.__device), torch.LongTensor(batch_el[1]).to(self.__device)))
 
+            yield batch
+            
 if __name__ == "__main__":
     from termcolor import colored
 
@@ -55,7 +49,8 @@ if __name__ == "__main__":
 
     iterator = DatasetIterator(dataset, service_tokens, tokenizer, torch.device("cpu"))
 
-    for sample in iterator.iterate(1,5):
-        print(f"{colored(sample.question, 'green')} -> {colored(sample.exceptAnswer, 'red')}", end=None)
+    for batch in iterator.iterate(3, 100):
+        for qa in batch:
+            print(f"{colored(qa.question, 'green')} -> {colored(qa.exceptAnswer, 'red')}")
         input()
         
