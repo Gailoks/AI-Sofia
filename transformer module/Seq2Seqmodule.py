@@ -1,8 +1,5 @@
-from typing import Any, Callable, Optional, Union
 import torch
-from torch import Tensor
 import torch.nn as nn
-from torch.nn import functional as F
 import ServiceTokens as st
 import torch.nn.functional as F
 
@@ -15,6 +12,7 @@ class Encoder(nn.Module):
         self.n_layers = n_layers
         self.Embedding = nn.Embedding(vocabulary_size, input_size)
         self.lstm = nn.LSTM(input_size,hid_size,n_layers,dropout=dropout)
+
 
     def forward(self, x, hidden=None):
         x = self.Embedding(x)
@@ -39,7 +37,7 @@ class Decoder(nn.Module):
         embedded = self.Embedding(x)
         out, hidden = self.lstm(embedded, hidden)
         out = self.l1(out)
-        out = self.relu(out)
+        #out = self.relu(out)
         out = F.log_softmax(out, dim=-1)
         return out, hidden
 

@@ -32,14 +32,29 @@ class Trainer:
     def add_loss(self, loss):
         self.loss_avg.append(loss.item())
 
-    def scheduler_step(self):
+    def scheduler_step(self,loss_avg):
         mean_loss = np.mean(loss_avg)
         print(f'Loss: {mean_loss}')
 
         self.encoder_te.scheduler.step(mean_loss)
         self.decoder_te.scheduler.step(mean_loss)
 
-        loss_avg = []
+
+
+def batching_hidden(hiddens, batch_size=0):
+    """batch_size is optional"""
+    if not batch_size:
+        batch_size = len(hiddens)
+    cx, tx = hiddens[0]
+    num_layers, batch, hidden_size = cx.shape
+
+    for hidden in hiddens[1:]:
+        cx1, tx1 = hidden
+        cx = torch.cat((cx,cx1))
+        tx = torch.cat((tx, tx1))
+    cx = cx.reshape(num_layers, batch_size, hidden_size)
+    tx = tx.reshape(num_layers, batch_size, hidden_size)
+    return (cx, tx)
 
 
 
@@ -49,13 +64,15 @@ def train(epoches: int, encoder: s2s.Encoder, decoder: s2s.Decoder, tokenizer: t
     dataset_iterator = dsi.DatasetIterator(dataset, service_tokens, tokenizer)
 
     loss_func = nn.NLLLoss()
-    encoder_te = TrainEnvironment(torch.optim.Adam(encoder.parameters(), lr = 1e-2))
-    decoder_te = TrainEnvironment(torch.optim.Adam(decoder.parameters(), lr = 1e-2))
+    encoder_te = TrainEnvironment(torch.optim.Adamax(encoder.parameters(), lr = 1e-2))
+    decoder_te = TrainEnvironment(torch.optim.Adam(decoder.parameters(), lr = 1e-2, amsgrad=True))
 
     trainer = Trainer(loss_func, encoder_te, decoder_te)
 
     encoder.train()
     decoder.train()
+
+    loss_avg = []
 
     for epoch in range(epoches):
         
@@ -65,40 +82,29 @@ def train(epoches: int, encoder: s2s.Encoder, decoder: s2s.Decoder, tokenizer: t
 
             real_batch_size = batch.size()
 
-            hiddens = torch.LongTensor().to(device)
+            hiddens = []
             for question in batch.questions:
-                x, hidden = encoder(question)
-                # For example: 2, 700 -> 2, 1, 700. It will joined in 3-d by second dim and in result we have 2, real_batch_size, 700
-                hidden = hidden.view(encoder.n_layers, 1, encoder.hidden_size)
-                hiddens = torch.cat((hiddens, hidden), 1)
+                hidden = encoder(question.view(-1,1))
+                hiddens.append(hidden)
+            hidden = batching_hidden(hiddens)
 
-            decoder_input = torch.LongTensor([service_tokens.get(st.STIO_NULL)] * real_batch_size).view(-1, 1).to(device) #Init with null value
+            decoder_input = torch.LongTensor([service_tokens.get(st.STIO_NULL)] * real_batch_size).view(1, -1).to(device) #Init with null value
 
-            decoder_output, hiddens = decoder(decoder_input, hiddens)
+            decoder_outputs, hidden = decoder(decoder_input, hidden)
+            
+            decoder_output, hidden = decoder(batch.answers[:-1],hidden)
+            decoder_outputs = torch.cat((decoder_outputs, decoder_output))
 
-            print(decoder_output)
+            loss = loss_func(decoder_outputs.view(-1,decoder.out_size), batch.answers.view(-1))
+            loss.backward()
+           
+            trainer.optim_step()
 
+            loss_avg.append(loss.item())
+            if len(loss_avg) >= 15:
+                trainer.scheduler_step(loss_avg)
 
-            for sample in dataset_iterator.iterate(25, 150):
-                nninput = sample.question
-                nnexcept = sample.exceptAnswer
-
-                encoderout, (cx,tx) = encoder(nninput)
-                cx = cx.reshape(encoder.n_layers, 1, encoder.hidden_size)
-                tx = tx.reshape(encoder.n_layers, 1, encoder.hidden_size)
-                output, hidden = decoder(rolt.view(-1, 1), (cx, tx), encoderout)
-                outputs = output
-
-                for train in nnexcept[:-1:]:
-                    output, hidden = decoder(train.view(-1,1), hidden, encoderout)
-                    outputs=torch.cat((outputs, output))
-
-                loss = loss_func(outputs.view(-1,decoder.out_size),nnexcept)
-                loss.backward()
-
-                trainer.optim_step()
-
-
+                loss_avg = []
 
 if __name__ == "__main__":
     with open("ai.json") as config:
@@ -115,20 +121,7 @@ if __name__ == "__main__":
 
     dataset = ds.load()
 
-    train(20, encoder, decoder, tokenizer, dataset, device)
+    train(40, encoder, decoder, tokenizer, dataset, device,batch_size=5,out_len=67)
 
     torch.save(encoder, ".aistate/encoder.pkl")
     torch.save(decoder, ".aistate/decoder.pkl")
-
-
-def batching_hidden(hiddens, batch_size):
-    cx, tx = hiddens[0]
-    num_layers, hidden_size = cx.shape
-
-    for hidden in hiddens[1:]:
-        cx1, tx1 = hidden
-        cx = torch.cat((cx,cx1))
-        tx = torch.cat((tx, tx1))
-    cx = cx.reshape(num_layers, batch_size, hidden_size)
-    tx = tx.reshape(num_layers, batch_size, hidden_size)
-    return (cx, tx)
