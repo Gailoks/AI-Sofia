@@ -82,20 +82,22 @@ def train(epoches: int, encoder: s2s.Encoder, decoder: s2s.Decoder, tokenizer: t
 
             real_batch_size = batch.size()
 
-            hiddens = []
+            encoded_data_h = torch.Tensor().to(device)
+            encoded_data_c = torch.Tensor().to(device)
+
             for question in batch.questions:
-                hidden = encoder(question.view(-1,1))
-                hiddens.append(hidden)
-            hidden = batching_hidden(hiddens)
+                h, c = encoder(question)
+                # Transform to pseudo 3-d to concat in second dim
+                h = h.view(encoder.n_layers, 1, encoder.hidden_size)
+                c = c.view(encoder.n_layers, 1, encoder.hidden_size)
 
-            decoder_input = torch.LongTensor([service_tokens.get(st.STIO_NULL)] * real_batch_size).view(1, -1).to(device) #Init with null value
+                encoded_data_h = torch.cat((encoded_data_h, h), 1)
+                encoded_data_c = torch.cat((encoded_data_c, c), 1)
 
-            decoder_outputs, hidden = decoder(decoder_input, hidden)
-            
-            decoder_output, hidden = decoder(batch.answers[:-1],hidden)
-            decoder_outputs = torch.cat((decoder_outputs, decoder_output))
 
-            loss = loss_func(decoder_outputs.view(-1,decoder.out_size), batch.answers.view(-1))
+            decoder_output = decoder((encoded_data_h, encoded_data_c), out_len, device)
+
+            loss = loss_func(decoder_output.permute(0, 2, 1), batch.answers)
             loss.backward()
            
             trainer.optim_step()
@@ -114,14 +116,14 @@ if __name__ == "__main__":
     tokens = tk.TokenDictionary.load(".aistate/tokens.json")
     tokenizer = tk.Tokenizer(tokens)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda")
 
     encoder = s2s.Encoder(**parametrs).to(device)
     decoder = s2s.Decoder(**parametrs).to(device)
 
     dataset = ds.load()
 
-    train(40, encoder, decoder, tokenizer, dataset, device,batch_size=5,out_len=67)
+    train(40, encoder, decoder, tokenizer, dataset, device, batch_size=5, out_len=67)
 
     torch.save(encoder, ".aistate/encoder.pkl")
     torch.save(decoder, ".aistate/decoder.pkl")
