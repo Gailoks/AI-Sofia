@@ -41,20 +41,21 @@ class Trainer:
 
 
 
-def batching_hidden(hiddens, batch_size=0):
-    """batch_size is optional"""
-    if not batch_size:
-        batch_size = len(hiddens)
-    cx, tx = hiddens[0]
-    num_layers, batch, hidden_size = cx.shape
+def encode_batch(encoder:s2s.Encoder, questions, device):
+    encoded_data_h = torch.Tensor().to(device)
+    encoded_data_c = torch.Tensor().to(device)
 
-    for hidden in hiddens[1:]:
-        cx1, tx1 = hidden
-        cx = torch.cat((cx,cx1))
-        tx = torch.cat((tx, tx1))
-    cx = cx.reshape(num_layers, batch_size, hidden_size)
-    tx = tx.reshape(num_layers, batch_size, hidden_size)
-    return (cx, tx)
+    for question in questions:
+        h, c = encoder(question)
+        # Transform to pseudo 3-d to concat in second dim
+        h = h.view(encoder.n_layers, 1, encoder.hidden_size)
+        c = c.view(encoder.n_layers, 1, encoder.hidden_size)
+
+        encoded_data_h = torch.cat((encoded_data_h, h), 1)
+        encoded_data_c = torch.cat((encoded_data_c, c), 1)
+
+    return (encoded_data_h, encoded_data_c)
+
 
 
 
@@ -82,22 +83,16 @@ def train(epoches: int, encoder: s2s.Encoder, decoder: s2s.Decoder, tokenizer: t
 
             real_batch_size = batch.size()
 
-            encoded_data_h = torch.Tensor().to(device)
-            encoded_data_c = torch.Tensor().to(device)
+            hidden = encode_batch(encoder, batch.questions, device)
+            null_toks = torch.LongTensor([service_tokens.get(st.STIO_NULL)] * real_batch_size).view(1, -1).to(device)
 
-            for question in batch.questions:
-                h, c = encoder(question)
-                # Transform to pseudo 3-d to concat in second dim
-                h = h.view(encoder.n_layers, 1, encoder.hidden_size)
-                c = c.view(encoder.n_layers, 1, encoder.hidden_size)
+            decoder_outs, hidden = decoder(null_toks, hidden)
 
-                encoded_data_h = torch.cat((encoded_data_h, h), 1)
-                encoded_data_c = torch.cat((encoded_data_c, c), 1)
+            for answer in batch.answers[:-1]:
+                decoder_out, hidden = decoder(answer.view(1, real_batch_size), hidden)
+                decoder_outs = torch.cat((decoder_outs, decoder_out), 0)
 
-
-            decoder_output = decoder((encoded_data_h, encoded_data_c), out_len, device)
-
-            loss = loss_func(decoder_output.permute(0, 2, 1), batch.answers)
+            loss = loss_func(decoder_outs.permute(0, 2, 1), batch.answers)
             loss.backward()
            
             trainer.optim_step()

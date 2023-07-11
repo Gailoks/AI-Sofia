@@ -27,19 +27,21 @@ def train(epoches: int, model:nn.Module, device: str, tokenizer, dataset) -> Non
     model.train()
 
     for epoch in range(epoches):
-        for sample in dataset_iterator.iterate(3,20):
+        for sample in dataset_iterator.iterate(4,35):
             nninput = sample.question
             nnexcept = sample.exceptAnswer
             mask = sample.mask
 
-            hidden = model.init_hidden(nninput.shape[0], device)
+            batch_size = nninput.shape[0]
+            hidden = model.init_hidden(batch_size, device)
 
-            output, hidden = model(nninput.permute(1,0), hidden)
+            outputs = torch.LongTensor([]).to(device)
+            for train in nninput.permute(1,0):
+                output, hidden = model(train.view(1,batch_size), hidden)
+                outputs = torch.cat((outputs, output),0)
 
-            masked_nnexcept = torch.masked_select(nnexcept,mask)
-            masked_out = torch.masked_select(output.permute(1,0,2), mask.view(3,-1,1))
 
-            loss = loss_func(masked_out.view(-1,model.out_size), masked_nnexcept)
+            loss = loss_func(outputs.permute(1,2,0), nnexcept)
             loss.backward()
 
             optim.step()
@@ -72,4 +74,4 @@ if __name__ == "__main__":
     model = RnnTextGen(**parametrs).to(device)
     dataset = ds.load()
 
-    train(10, model, device, tokenizer, dataset)
+    train(15, model, device, tokenizer, dataset)

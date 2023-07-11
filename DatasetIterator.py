@@ -28,8 +28,9 @@ class DatasetIterator:
         for sample in qaPairs:
             tq = list(self.__tokenizer.tokenize(sample.question))#tokenized question
             ta = list(self.__tokenizer.tokenize(sample.answer))#tokenized answer
+            pa = list(self.__tokenizer.tokenize(" "))
             train += tq + [self.__servicetokens.get(st.STI_ROLE)] + ta
-            target += tq + ta + [self.__servicetokens.get(st.STO_END)]
+            target += tq[1:] + [self.__servicetokens.get(st.STI_ROLE)] + ta + [self.__servicetokens.get(st.STO_END)]
             mask += len(tq)*[0] + [1] + len(ta)*[1]
 
         train = list(DatasetIterator.partition(train, batch_len))
