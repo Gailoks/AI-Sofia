@@ -70,7 +70,6 @@ if __name__ == "__main__":
     tokenizer = tk.Tokenizer(tokens)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.backends.cuda.matmul.allow_tf32 = True
 
     model = RnnTextGen(**parametrs).to(device)
     dataset = ds.load()

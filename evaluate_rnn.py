@@ -45,7 +45,7 @@ Model = torch.load("moduledata.pkl").to(device)
 
 Model.eval()
 
-answer = evaluate(Model, tokenizer,"что такое большие данные?что такое Распределенный реестр?",300)
+answer = evaluate(Model, tokenizer,"что такое большие данные?",300)
 print(answer)
 #answer, status = evaluate(Model, tokenizer,max_length=50,status=status)
 #print(answer)

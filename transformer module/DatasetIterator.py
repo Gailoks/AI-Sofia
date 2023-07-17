@@ -23,7 +23,7 @@ class DatasetIterator:
 
             question_tensor = torch.LongTensor(tokenized_question)
 
-            tokenized_answer = list(self.__tokenizer.tokenize(qa.answer + " "))
+            tokenized_answer = list(self.__tokenizer.tokenize(qa.answer))
             tokenized_answer = tokenized_answer + [self.__servicetokens.get(st.STIO_NULL)] * (out_len - len(tokenized_answer))
 
             answer_tensor = torch.LongTensor(tokenized_answer).view(-1, 1) # Transform to 1-d vertical column tensor
