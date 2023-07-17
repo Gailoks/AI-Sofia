@@ -23,21 +23,22 @@ def evaluate(Encoder, Decoder, tokenizer, text: str=None, max_length: int = 15, 
         inp = out.argmax()
         if inp == NULL_TOKEN:
             continue
-        word = tokenizer.decode_token(int(inp))
+        word = tokenizer.decode_token(int(inp)) + " "
         predicted_text += word
     return predicted_text, (inp,hidden)
 
-#question = input("Введите запрос ")
-tokens = tk.TokenDictionary.load(".aistate/tokens.json")
-tokenizer = tk.Tokenizer(tokens)
-device = "cpu"
+if __name__ == "__main__":
+    #question = input("Введите запрос ")
+    tokens = tk.TokenDictionary.load(".aistate/tokens.json")
+    tokenizer = tk.Tokenizer(tokens)
+    device = "cpu"
 
-encoder = torch.load(".aistate/encoder.pkl").to(device)
-decoder = torch.load(".aistate/decoder.pkl").to(device)
-encoder.eval()
-decoder.eval()
+    encoder = torch.load(".aistate/encoder.pkl").to(device)
+    decoder = torch.load(".aistate/decoder.pkl").to(device)
+    encoder.eval()
+    decoder.eval()
 
-answer, status = evaluate(encoder, decoder, tokenizer,"",30)
-print(answer)
-answer, status = evaluate(encoder, decoder, tokenizer, max_length=50, status=status)
-print(answer)
+    answer, status = evaluate(encoder, decoder, tokenizer,"",30)
+    print(answer)
+    answer, status = evaluate(encoder, decoder, tokenizer, max_length=50, status=status)
+    print(answer)
