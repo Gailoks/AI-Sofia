@@ -1,7 +1,7 @@
-SERVICE_INPUT_SIZE = 1
+SERVICE_INPUT_SIZE = 0
 SERVICE_OUTPUT_SIZE = 1
 
-STIO_NULL = 0
+STO_SWITCH = 0
 
 class ServiceTokens:
     def __init__(self, vocabulary_size:int):

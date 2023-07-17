@@ -7,6 +7,7 @@ import Tokens as tk
 import ServiceTokens as st
 import DatasetIterator as dsi
 import Seq2Seqmodule as s2s
+import random 
 
 
 class TrainEnvironment:
@@ -77,22 +78,29 @@ def train(epoches: int, encoder: s2s.Encoder, decoder: s2s.Decoder, tokenizer: t
 
     for epoch in range(epoches):
         
-        for batch in dataset_iterator.iterate(batch_size, out_len):
-
+        for batch in dataset_iterator.iterate(batch_size):
             batch.to(device)
-
+            samples = batch.list_samples()
             real_batch_size = batch.size()
+            null_input = torch.zeros(decoder.hidden_size).view(-1,1).to(device)
+            encoder_hidden = None
+            decoder_hidden = None
+            mask = list()
+            loss = 0
 
-            hidden = encode_batch(encoder, batch.questions, device)
-            null_toks = torch.LongTensor([service_tokens.get(st.STIO_NULL)] * real_batch_size).view(1, -1).to(device)
+            for sample in samples:
+                encoder_outs,encoder_hidden = encoder(sample.question)
+                for encoder_out in encoder_outs[:-1]:
+                    decoder_out, decoder_hidden = decoder(encoder_out, decoder_hidden)
+                    if int(decoder_out.argmax()) == service_tokens.get(st.STO_SWITCH):
+                        mask.append((decoder_out, random.randint(0, tokenizer.count_tokens() - 1)))
+                decoder_outs, decoder_hidden = decoder(encoder_outs[-1], decoder_hidden)
+                for i in sample.exceptAnswer:
+                    decoder_out, decoder_hidden = decoder(null_input, decoder_hidden)
+                    decoder_outs = torch.cat((decoder_outs, decoder_out))
 
-            decoder_outs, hidden = decoder(null_toks, hidden)
+                loss += loss_func(decoder_outs.permute(0, 1), sample.exceptAnswer)
 
-            for answer in batch.answers[:-1]:
-                decoder_out, hidden = decoder(answer.view(1, real_batch_size), hidden)
-                decoder_outs = torch.cat((decoder_outs, decoder_out), 0)
-
-            loss = loss_func(decoder_outs.permute(0, 2, 1), batch.answers)
             loss.backward()
            
             trainer.optim_step()
@@ -104,11 +112,11 @@ def train(epoches: int, encoder: s2s.Encoder, decoder: s2s.Decoder, tokenizer: t
                 loss_avg = []
 
 if __name__ == "__main__":
-    with open("ai.json") as config:
+    with open("transformer module/ai.json") as config:
         parametrs = json.load(config)
 
 
-    tokens = tk.TokenDictionary.load(".aistate/tokens.json")
+    tokens = tk.TokenDictionary.load("transformer module/.aistate/tokens.json")
     tokenizer = tk.Tokenizer(tokens)
 
     device = torch.device("cuda")

@@ -7,24 +7,19 @@ class LearnSample:
         self.exceptAnswer = exceptAnswer
 
 class Batch:
-    def __init__(self, out_len: int):
-        self.questions = []
-        self.answers = torch.LongTensor()
-        self.out_len = out_len
-        pass
+    def __init__(self) -> None:
+        self.samples = []
 
+    def append(self, sample:LearnSample):
+        self.samples.append(sample)
 
+    def list_samples(self):
+        return self.samples
+    
     def to(self, device):
-        self.answers = self.answers.to(device)
-        self.questions = list(map(lambda x: x.to(device), self.questions))
+        for sample in self.samples:
+            sample.question = sample.question.to(device)
+            sample.exceptAnswer = sample.exceptAnswer.to(device)
 
-    def append(self, sample: LearnSample):
-        target_size = torch.Size([self.out_len, 1])
-        if sample.exceptAnswer.size() != target_size:
-            raise Exception(f"Invalid learn sample size, was {sample.exceptAnswer.size()} except {target_size}")
-
-        self.questions.append(sample.question)
-        self.answers = torch.cat((self.answers, sample.exceptAnswer), 1)
-
-    def size(self) -> int:
-        return len(self.questions)
+    def size(self):
+        return len(self.samples)

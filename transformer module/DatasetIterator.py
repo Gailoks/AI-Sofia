@@ -13,7 +13,7 @@ class DatasetIterator:
         self.__servicetokens = servicetokens
         self.__tokenizer = tokenizer
 
-    def iterate(self, batch_size, out_len) -> Iterable:
+    def iterate(self, batch_size) -> Iterable:
         qaPairs = self.__dataset.listPairs()
         
         samples: list = []
@@ -24,9 +24,8 @@ class DatasetIterator:
             question_tensor = torch.LongTensor(tokenized_question)
 
             tokenized_answer = list(self.__tokenizer.tokenize(qa.answer))
-            tokenized_answer = tokenized_answer + [self.__servicetokens.get(st.STIO_NULL)] * (out_len - len(tokenized_answer))
 
-            answer_tensor = torch.LongTensor(tokenized_answer).view(-1, 1) # Transform to 1-d vertical column tensor
+            answer_tensor = torch.LongTensor(tokenized_answer)
 
             samples.append(LearnSample(question_tensor, answer_tensor))
 
@@ -34,7 +33,7 @@ class DatasetIterator:
         for offset in range(0, len(samples), batch_size):
             raw_batch = samples[offset:offset + batch_size:]
 
-            batch = Batch(out_len)
+            batch = Batch()
             for batch_el in raw_batch:
                 batch.append(batch_el)
 
