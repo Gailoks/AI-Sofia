@@ -1,10 +1,3 @@
 __pycache__/
 .history/
-.aistate/
-
-# CS ignores
-Debug/
-bin/
-.vs/
-obj/
-BenchmarkDotNet.Artifacts/
+.state/

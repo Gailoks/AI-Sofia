@@ -1,0 +1,10 @@
+set_device cuda
+load_texts
+parse_dataset
+load_tokens
+
+@USERCHOICE:Create_new_net_or_load_existance:new @CASE:new create_newnn @CASE:load load_nn
+
+train @INPUT:Enter_epoch_count
+
+save_nn

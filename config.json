@@ -1,0 +1,39 @@
+{
+    "vocabulary_size": 200,
+
+    "texts database":
+    {
+        "source": "samples/"
+    },
+
+    "token generator":
+    {
+
+    },
+
+    "neural model":
+    {
+        "hidden_size": 100,
+
+        "encoder":
+        {
+            "embed_size": 40,
+            "lstm_n_layers": 2
+        },
+
+        "decoder":
+        {
+
+        }
+    },
+
+    "trainer":
+    {
+        "batch_size": 20,
+        "learn_rate": 0.71828182845904523536028747135266,
+        
+        "scheduler_patience": 5,
+        "scheduler_factor": 0.5,
+        "scheduler_step_size": 15
+    }
+}

@@ -1,137 +1,136 @@
+"""Provides functional to tokenize text"""
+from __future__ import annotations
 import json
-import Dataset as ds
-# TokenDictionary, TokenDictionaryGenerator and Tokenizer
+from collections import Counter
+from pymorphy3 import MorphAnalyzer
+import texts
 
 
-class TokenDictionary():
-    def __init__(self, tokens_decode_table: list):
-        self.tokens = sorted(tokens_decode_table, key = lambda x: len(x), reverse = True)
+VOCABULARY_TOKENS_COUNT = 1
+VT_UNKOWN = 0
+
+
+def _is_valid_char(char: str) -> bool:
+    return str.isalpha(char) or char in [' ', '\n']
+
+def _preprocess_text(text: str):
+    text = text.lower()
+    text = "".join(filter(_is_valid_char, text))
+    return text
+
+
+def _split_text(text: str, morph: MorphAnalyzer):
+    def normalize_word(word: str):
+        parse_result = morph.parse(word)
+        most_scored = max(parse_result, key=lambda x: x.score)
+        return most_scored.normalized.word
+
+    return list(map(normalize_word, _preprocess_text(text).split()))
+
+
+class TokenDictionary:
+    """Represents dictionary of tokens"""
+
+    def __init__(self, tokens_decode_table: list[str]):
+        self.tokens = tokens_decode_table
         self.rw_tokens = {v: k for k, v in enumerate(self.tokens)}
 
-    def code(self, text):
+    def code(self, text:str) -> int:
+        """Tries to code text to token, if failed returns VT_UNKOWN"""
         for token, token_text in enumerate(self.tokens):
-            if text.startswith(token_text):
-                char_ate = len(token_text)
-                return token, char_ate
-        else:
-            return -1, 0
+            if text == token_text:
+                return token + VOCABULARY_TOKENS_COUNT
 
-    def decode(self, token):
-        return self.tokens[token]
+        return VT_UNKOWN
 
-    def count(self):
+    def decode(self, token: int) -> str:
+        """Decodes token to text that associated with it, if VT_UNKOWN raises excpetion"""
+        if token == VT_UNKOWN:
+            raise KeyError("Enable to decode VT_UNKOWN token")
+        return self.tokens[token - VOCABULARY_TOKENS_COUNT]
+
+    def count(self) -> int:
+        """Counts tokens in dictionary"""
         return len(self.tokens)
 
-    def save(self, path: str):
-        with open(path, 'w') as file:
-            json.dump(self.tokens, file)
+    def save(self, path: str) -> None:
+        """Saves dictionary to file"""
+        with open(path, "w", encoding="utf-16") as file:
+            json.dump(self.tokens, file, ensure_ascii=False)
 
     @staticmethod
-    def load(path):
-        tokens = None
-        with open(path, 'r') as file:
+    def load(path: str) -> TokenDictionary:
+        """Loads dictionary from file"""
+        with open(path, "r", encoding="utf-16") as file:
             tokens = json.load(file)
-        return TokenDictionary(tokens)
+            return TokenDictionary(tokens)
+
+    def __str__(self) -> str:
+        return "TokenDictionary" + str(self.tokens)
 
 
-class TokenDictionaryGenerator():
-    """
-    Accept options:\n
-    vocabulary_size (required) - target tokens dictionary size\n
-    token_depth (default: 5) - max lenght of token in statistic analize\n
-    use_words (default: True) - also analize full words
-    """
+class TokenDictionaryGenerator:
+    """Generator of token dictionary"""
+    def __init__(self, vocabulary_size: int):
+        self.__vocabulary_size_fixed = vocabulary_size - VOCABULARY_TOKENS_COUNT
 
-    def __init__(self, vocabulary_size:int, token_depth:int = 5, use_words:bool = True):
-        self.__vocabulary_size = vocabulary_size
-        self.__token_depth = token_depth
-        self.__use_words = use_words
+    def generate_tokens(self, database: texts.TextsDatabase) -> TokenDictionary:
+        """Analyzes given TextDatabase and builds optimal tokens model"""
 
-    def generate_tokens(self, samples: ds.Dataset) -> TokenDictionary:
-        tokens = []
+        tokens = [",", ".", "-", "?"]
 
-        # Get unique letter in samples and add they as tokens
-        alphabet = set()
-        for qa in samples.listPairs():
-            alphabet = alphabet.union(qa.question)
-            alphabet = alphabet.union(qa.answer)
+        data = []
 
-        for char in alphabet:
-            tokens.append(char)
+        morph = MorphAnalyzer()
 
-        # Generate token using statistic based algoritm
-        def increase(s_dict, key):
-            s_dict[key] = s_dict.get(key, 0) + len(key)
+        for text in database.list_texts():
+            data += _split_text(text, morph)
 
-        def increase_limit(s_dict, key, limit):
-            if len(key) >= limit:
-                increase(s_dict, key)
-
-        token_depth = self.__token_depth
-        s_dict = {}
-
-        sample = " ".join(map(lambda qa: qa.question + " " + qa.answer, samples.listPairs()))
-        sample = "".join(filter(lambda x: x not in ",.?!", sample))
-
-        if self.__use_words:
-            [increase_limit(s_dict, word, token_depth)
-            for word in sample.split()]
-
-        for i in range(1, len(sample)):
-            for offset in range(1, token_depth):
-                increase(s_dict, sample[i - offset:i + 1])
-
-        length_of_tokens = len(tokens)
-        sds = sorted(s_dict.items(), key=lambda x: x[1], reverse=True)
-
-        # Copy first self.vocab_size - length_of_tokens from sds to token to fill token up to vocab_size
-        for i in range(self.__vocabulary_size - length_of_tokens):
-            tokens.append(sds[i][0])
+        counter = Counter(data)
+        tokens += list(
+            map(
+                lambda x: x[0],
+                counter.most_common(self.__vocabulary_size_fixed - len(tokens)),
+            )
+        )
 
         return TokenDictionary(tokens)
 
 
-class Tokenizer():
-    def __init__(self, dictionary: TokenDictionary, **options):
-        self.dictionary = dictionary
-        self.options = options
+class Tokenizer:
+    """Token processor, tokenizes and detokenizes text using TokenDictionary"""
+    def __init__(self, dictionary: TokenDictionary):
+        self.__dictionary = dictionary
+        self.__morph = MorphAnalyzer()
 
-    def tokenize(self, text:str) -> list():
-        while text:
-            token, char_ate = self.dictionary.code(text)
-            if token == -1:
-                text = text[1:]
-                continue
-            text = text[char_ate:]
-            yield token
+    def tokenize(self, text: str) -> list[int]:
+        """Creates list of token that represents your text"""
+        result = []
 
-    def decode_token(self, token:int):
-        return self.dictionary.decode(token)
+        for word in _split_text(text, self.__morph):
+            token = self.__dictionary.code(word)
+
+            result.append(token)
+
+        return result
+
+    def detokenize(self, tokens: list[int]) -> str:
+        """Converts token list to text"""
+        result = []
+
+        for token in tokens:
+            if token == VT_UNKOWN:
+                word = "UNKNOWN"
+            word = self.__dictionary.decode(token)
+            result.append(word)
+
+        return " ".join(result)
+
+    def count_tokens(self) -> int:
+        """Counts tokens in base TokenDictionary"""
+        return self.__dictionary.count()
+
+    def get_dictionary(self) -> TokenDictionary:
+        """Reruens base TokenDictionary"""
+        return self.__dictionary
     
-    def count_tokens(self):
-        return self.dictionary.count()
-
-    def get_dictionary(self):
-        return self.dictionary
-
-
-if __name__ == "__main__":
-    import Tokens as tk
-    import Dataset as ds
-    from termcolor import colored
-
-
-    dataset = ds.load()
-
-    generator = tk.TokenDictionaryGenerator(
-        vocabulary_size = 1200,
-        token_depth = 5,
-        use_words = True
-    )
-
-    tokens = generator.generate_tokens(dataset)
-
-    path = ".aistate/tokens.json"
-    tokens.save(path)
-
-    print(colored(f"Tokens were generated and saved into '{path}'", "green"))

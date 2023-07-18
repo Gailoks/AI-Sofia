@@ -1,0 +1,6 @@
+set_device cpu
+load_tokens
+
+load_nn
+
+eval @INPUT:Enter_promt
